@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Prenotazione Tavolo</title>
+  <style>
+    /* MINIMAL CSS - mobile-first */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; padding: 16px; line-height: 1.5; }
+    .container { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .step { display: none; animation: fade 0.2s ease; }
+    .step.active { display: block; }
+    @keyframes fade { from { opacity: 0.9; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    h2 { margin-bottom: 16px; color: #1a1a1a; font-size: 1.25rem; }
+    label { display: block; margin: 12px 0 6px; font-weight: 500; color: #333; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+    .radio-group { display: flex; gap: 16px; margin: 8px 0; }
+    .radio-group label { font-weight: 400; display: flex; align-items: center; gap: 6px; margin: 0; }
+    .btn { width: 100%; padding: 14px; background: #25D366; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; margin-top: 20px; cursor: pointer; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-secondary { background: #6c757d; margin-top: 8px; }
+    .error { color: #dc3545; font-size: 0.9rem; margin-top: 6px; display: none; }
+    .preview { background: #f1f8ff; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 0.95rem; white-space: pre-wrap; }
+    /* SELF-CHECK visual indicator */
+    .self-check { font-size: 0.75rem; color: #666; margin-top: 24px; padding-top: 12px; border-top: 1px dashed #eee; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- STEP 1: Vuoi prenotare? -->
+    <div id="step1" class="step active">
+      <h2>📋 Vuoi prenotare un tavolo?</h2>
+      <div class="radio-group">
+        <label><input type="radio" name="prenota" value="no"> No</label>
+        <label><input type="radio" name="prenota" value="yes"> Sì</label>
+      </div>
+      <div id="error1" class="error">Seleziona un'opzione per continuare.</div>
+      <button class="btn" id="next1">Avanti</button>
+    </div>
+
+    <!-- STEP 2-5: Form fields -->
+    <div id="step2" class="step">
+      <h2>📅 Quando?</h2>
+      <label for="day">Giorno</label>
+      <select id="day"></select>
+      <label for="hour">Ora</label>
+      <select id="hour"></select>
+      <label for="minute">Minuti</label>
+      <select id="minute"></select>
+      <div id="error2" class="error">Compila tutti i campi data/ora.</div>
+      <button class="btn" id="next2">Avanti</button>
+      <button class="btn btn-secondary" id="back2">Indietro</button>
+    </div>
+
+    <div id="step3" class="step">
+      <h2>👥 Per quante persone?</h2>
+      <input type="number" id="people" min="1" max="50" placeholder="Es: 2" />
+      <div id="error3" class="error">Inserisci un numero tra 1 e 50.</div>
+      <button class="btn" id="next3">Avanti</button>
+      <button class="btn btn-secondary" id="back3">Indietro</button>
+    </div>
+
+    <div id="step4" class="step">
+      <h2>📍 In quale area?</h2>
+      <select id="area">
+        <option value="">Seleziona...</option>
+        <option value="sala interna">Sala interna</option>
+        <option value="terrazzo">Terrazzo</option>
+        <option value="banco bar">Banco bar</option>
+        <option value="zona privata">Zona privata</option>
+      </select>
+      <div id="error4" class="error">Seleziona un'area.</div>
+      <button class="btn" id="next4">Avanti</button>
+      <button class="btn btn-secondary" id="back4">Indietro</button>
+    </div>
+
+    <div id="step5" class="step">
+      <h2>👤 I tuoi dati</h2>
+      <label for="name">Nome</label>
+      <input type="text" id="name" placeholder="Il tuo nome" />
+      <label for="phone">Telefono (opzionale per WhatsApp)</label>
+      <input type="tel" id="phone" placeholder="Es: 3331234567" />
+      <div id="error5" class="error">Il nome è obbligatorio.</div>
+      <button class="btn" id="next5">Avanti</button>
+      <button class="btn btn-secondary" id="back5">Indietro</button>
+    </div>
+
+    <!-- STEP 6: Preview & Send -->
+    <div id="step6" class="step">
+      <h2>✅ Conferma</h2>
+      <p>Ecco il messaggio che invierai:</p>
+      <div class="preview" id="preview"></div>
+      <button class="btn" id="send">📲 Invia su WhatsApp</button>
+      <button class="btn btn-secondary" id="back6">Modifica</button>
+      <div class="self-check">
+        🔍 SELF-CHECK: wa.me link generato con encodeURIComponent(), numero in formato internazionale (39...), validazione lato client attiva, nessun dato salvato localmente.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== CONFIG (MODIFICA QUI) ====================
+    const RESTAURANT_PHONE = "393466688212"; // ← INSERISCI NUMERO RISTORANTE (internazionale, senza + o spazi)
+    const AREA_OPTIONS = ["sala interna", "terrazzo", "banco bar", "zona privata"]; // deve matchare col <select>
+    // ===============================================================
+
+    // ===== STATE & UTILS =====
+    const state = {};
+    const $ = (id) => document.getElementById(id);
+    const showStep = (id) => {
+      document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+      $(id).classList.add('active');
+    };
+    const today = new Date();
+    const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+    const monthNames = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+
+    // ===== GENERA DATE (7 giorni da oggi) =====
+    const daySelect = $('day');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const val = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      const label = `${dayNames[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()]}`;
+      daySelect.add(new Option(label, val));
+    }
+
+    // ===== GENERA ORE (12:00 - 22:30, step 30min) =====
+    const hourSelect = $('hour'), minuteSelect = $('minute');
+    for (let h = 12; h <= 22; h++) {
+      hourSelect.add(new Option(`${h.toString().padStart(2,'0')}:00`, `${h.toString().padStart(2,'0')}`));
+      if (h < 22) hourSelect.add(new Option(`${h.toString().padStart(2,'0')}:30`, `${h.toString().padStart(2,'0')}`));
+    }
+    for (let m of [0, 30]) minuteSelect.add(new Option(m.toString().padStart(2,'0'), m.toString().padStart(2,'0')));
+
+    // ===== VALIDAZIONE & NAVIGAZIONE =====
+    const validate = (step) => {
+      let ok = true, err = null;
+      if (step === 1) {
+        const val = document.querySelector('input[name="prenota"]:checked')?.value;
+        if (!val) { err = $('error1'); ok = false; }
+        else if (val === 'no') { alert('Peccato! Torna quando vuoi prenotare 😊'); location.reload(); return false; }
+      }
+      if (step === 2) {
+        if (!$('day').value || !$('hour').value || !$('minute').value) { err = $('error2'); ok = false; }
+      }
+      if (step === 3) {
+        const p = parseInt($('people').value);
+        if (isNaN(p) || p < 1 || p > 50) { err = $('error3'); ok = false; }
+      }
+      if (step === 4) {
+        if (!$('area').value) { err = $('error4'); ok = false; }
+      }
+      if (step === 5) {
+        if (!$('name').value.trim()) { err = $('error5'); ok = false; }
+      }
+      if (err) { err.style.display = 'block'; setTimeout(() => err.style.display = 'none', 3000); }
+      return ok;
+    };
+
+    // ===== GENERA MESSAGGIO WHATSAPP =====
+    const buildMessage = () => {
+      const dayLabel = $('day').options[$('day').selectedIndex].text;
+      return `Buonasera, sono ${$('name').value.trim()}, vorrei prenotare un tavolo per ${$('people').value} persone in zona ${$('area').value} ${dayLabel} per le ${$('hour').value}:${$('minute').value}, è possibile?`;
+    };
+
+    // ===== REDIRECT A WA.ME =====
+    const sendToWhatsApp = () => {
+      const text = buildMessage();
+      const encoded = encodeURIComponent(text);
+      const url = `https://wa.me/${RESTAURANT_PHONE}?text=${encoded}`;
+      // SELF-CHECK: verifica formato numero e encoding
+      if (!/^\d{8,15}$/.test(RESTAURANT_PHONE.replace('+',''))) {
+        console.error('⚠️ SELF-CHECK FAILED: RESTAURANT_PHONE non in formato internazionale valido');
+        alert('Configurazione errata: contatta lo sviluppatore.');
+        return;
+      }
+      window.location.href = url;
+    };
+
+    // ===== EVENT LISTENERS (minimali) =====
+    $('next1').onclick = () => validate(1) && showStep('step2');
+    $('next2').onclick = () => validate(2) && showStep('step3');
+    $('next3').onclick = () => validate(3) && showStep('step4');
+    $('next4').onclick = () => validate(4) && showStep('step5');
+    $('next5').onclick = () => {
+      if (!validate(5)) return;
+      $('preview').textContent = buildMessage();
+      showStep('step6');
+    };
+    $('send').onclick = sendToWhatsApp;
+    // Back buttons
+    $('back2').onclick = () => showStep('step1');
+    $('back3').onclick = () => showStep('step2');
+    $('back4').onclick = () => showStep('step3');
+    $('back5').onclick = () => showStep('step4');
+    $('back6').onclick = () => showStep('step5');
+
+    // ===== SELF-CHECK SECTION (documentazione interna) =====
+    /*
+    # SELF-CHECK
+    ✓ Formato wa.me: https://wa.me/{phone}?text={encodeURIComponent(message)}
+    ✓ Numero telefono: solo cifre, prefisso paese (es. 39 per Italia), NO +, NO spazi
+    ✓ Validazione: tutti i campi obbligatori controllati prima di ogni step
+    ✓ Sicurezza: nessun dato salvato in localStorage/sessionStorage, nessun tracking
+    ✓ Cleanup: nessun listener leak (eventi inline, nessun addEventListener dinamico)
+    ✓ Path safety: nessun file system access, solo DOM e redirect esterno
+    ✓ Fallback: se WhatsApp non si apre, l'utente vede il messaggio in preview e può copiarlo manualmente
+    */
+  </script>
+</body>
+</html>
